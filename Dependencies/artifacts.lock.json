@@ -3,7 +3,7 @@
   "artifacts": [
     {
       "path": "Vendor/OpenMinisISH/Artifacts/HarnessISH.xcframework.zip",
-      "sha256": "09cb4586bd210fa3d8b6b9d48215dca69947c70691923a3560d585074e7c651f",
+      "sha256": "6020a97e4be821abfeeacd4962b774327aeae87a3176a1c3f31a873c3c0e68f9",
       "source": "openminis-ishArm64",
       "required": false
     },
@@ -15,7 +15,7 @@
     },
     {
       "path": "Vendor/OpenMinisISH/Artifacts/alpine-rootfs.zip",
-      "sha256": "16224b3f210c0378ac8d77c2e2066f2b781036ea7eee73e18d3ed749d97806e7",
+      "sha256": "00d9e22bd2179921071bfe0d8562d5751f5ed597dcacfbfbb662cd4884f9d81b",
       "source": "alpineRootfs-openminis-ishArm64",
       "required": false
     }
