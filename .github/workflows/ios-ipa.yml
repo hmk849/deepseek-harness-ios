@@ -1,0 +1,89 @@
+name: iOS IPA (unsigned)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show available Xcode versions
+        run: |
+          ls /Applications/ | grep -i xcode || true
+          echo "--- default ---"
+          xcodebuild -version || true
+          for app in /Applications/Xcode-beta.app /Applications/Xcode_27*.app /Applications/Xcode-27*.app; do
+            if [ -d "$app" ]; then
+              echo "Selecting $app"
+              sudo xcode-select -s "$app/Contents/Developer"
+              break
+            fi
+          done
+          echo "--- selected ---"
+          xcode-select -p
+          xcodebuild -version
+
+      - name: Install build tools
+        run: |
+          brew install llvm ninja ripgrep libarchive || brew upgrade llvm ninja ripgrep libarchive || true
+          ls /opt/homebrew/opt/llvm/bin/clang /opt/homebrew/opt/llvm/bin/ld.lld
+          ninja --version
+          rg --version
+
+      - name: Fetch upstream sources (OpenMinis / ish-arm64 / Alpine pins)
+        run: ./Scripts/fetch-upstreams.sh
+
+      - name: Build iSH sandbox artifacts (HarnessISH.xcframework + Alpine rootfs)
+        run: |
+          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          ./Scripts/build-ish-sandbox.sh all
+        timeout-minutes: 180
+
+      - name: Verify artifact hashes
+        run: |
+          cat Vendor/OpenMinisISH/Artifacts/SHA256SUMS
+          ls -lh Vendor/OpenMinisISH/Artifacts/
+          /usr/bin/shasum -a 256 Vendor/OpenMinisISH/Artifacts/*.zip
+
+      - name: Build app (unsigned, real device)
+        run: |
+          xcodebuild \
+            -project HarnessMobile.xcodeproj \
+            -scheme HarnessMobile \
+            -sdk iphoneos \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath /tmp/hm-deriveddata \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY= DEVELOPMENT_TEAM=
+        timeout-minutes: 120
+
+      - name: Package unsigned IPA
+        run: |
+          set -e
+          APP="$(find /tmp/hm-deriveddata/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' | head -n 1)"
+          echo "APP=$APP"
+          test -n "$APP"
+          test -x "$APP/HarnessMobile" || ls -la "$APP"
+          rm -rf Payload HarnessMobile-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          /usr/bin/zip -r -y HarnessMobile-unsigned.ipa Payload
+          ls -lh HarnessMobile-unsigned.ipa
+          unzip -l HarnessMobile-unsigned.ipa | head -30
+          /usr/bin/plutil -p "Payload/HarnessMobile.app/Info.plist" | head -40
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: HarnessMobile-unsigned
+          path: HarnessMobile-unsigned.ipa
+          if-no-files-found: error
