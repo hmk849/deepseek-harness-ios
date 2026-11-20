@@ -32,8 +32,10 @@ jobs:
 
       - name: Install build tools
         run: |
-          brew install llvm ninja ripgrep libarchive || brew upgrade llvm ninja ripgrep libarchive || true
-          ls /opt/homebrew/opt/llvm/bin/clang /opt/homebrew/opt/llvm/bin/ld.lld
+          # NOTE: Homebrew LLVM 23 no longer ships ld.lld — LLD is a separate formula now.
+          brew install llvm ninja ripgrep libarchive lld || brew upgrade llvm ninja ripgrep libarchive lld || true
+          ls /opt/homebrew/opt/llvm/bin/clang
+          ls /opt/homebrew/opt/lld/bin/ld.lld
           ninja --version
           rg --version
 
@@ -42,7 +44,7 @@ jobs:
 
       - name: Build iSH sandbox artifacts (HarnessISH.xcframework + Alpine rootfs)
         run: |
-          export PATH="/opt/homebrew/opt/llvm/bin:$PATH"
+          export PATH="/opt/homebrew/opt/llvm/bin:/opt/homebrew/opt/lld/bin:$PATH"
           ./Scripts/build-ish-sandbox.sh all
         timeout-minutes: 180
 
